@@ -12,6 +12,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 public final class LabActivity extends AppCompatActivity {
 
@@ -23,6 +24,9 @@ public final class LabActivity extends AppCompatActivity {
     public static final String EXTRA_PHOTO_DATA_PATH =
             "com.nummist.secondsight.LabActivity.extra.PHOTO_DATA_PATH";
 
+    public static final String EXTRA_MRZ_TEXT =
+            "com.nummist.secondsight.LabActivity.extra.MRZ_TEXT";
+
     private Uri mUri;
     private String mDataPath;
 
@@ -33,9 +37,13 @@ public final class LabActivity extends AppCompatActivity {
         final Intent intent = getIntent();
         mUri = intent.getParcelableExtra(EXTRA_PHOTO_URI);
         mDataPath = intent.getStringExtra(EXTRA_PHOTO_DATA_PATH);
+        String mrzText = intent.getStringExtra(EXTRA_MRZ_TEXT);
 
         final ImageView imageView = new ImageView(this);
         imageView.setImageURI(mUri);
+
+        final TextView mrzCode = new TextView(this);
+        mrzCode.setText(mrzText);
 
         setContentView(imageView);
     }

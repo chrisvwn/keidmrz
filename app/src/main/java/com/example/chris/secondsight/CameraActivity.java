@@ -1,5 +1,6 @@
 package com.example.chris.secondsight;
 
+import android.os.SystemClock;
 import android.support.v7.app.AppCompatActivity;
 
 import android.net.Uri;
@@ -12,18 +13,19 @@ import android.annotation.SuppressLint;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.hardware.Camera;
-import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.Size;
-import android.support.v7.app.ActionBarActivity;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SubMenu;
+import android.view.SurfaceView;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.chris.secondsight.detectmrz.DetectIDMRZ;
 import com.example.chris.secondsight.filters.Filter;
 import com.example.chris.secondsight.filters.NoneFilter;
 import com.example.chris.secondsight.filters.ar.ImageDetectionFilter;
@@ -39,7 +41,6 @@ import com.example.chris.secondsight.filters.mixer.RecolorRGVFilter;
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
-import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.JavaCameraView;
 import org.opencv.android.OpenCVLoader;
@@ -91,6 +92,8 @@ public class CameraActivity extends AppCompatActivity
             "convolutionFilterIndex";
     private static final String STATE_IMAGE_DETECTION_FILTER_INDEX =
             "imageDetectionFilterIndex";
+    private String mrz = "";
+
     // The filters.
     private Filter[] mCurveFilters;
     private Filter[] mMixerFilters;
@@ -103,6 +106,8 @@ public class CameraActivity extends AppCompatActivity
     private int mConvolutionFilterIndex;
     private int mImageDetectionFilterIndex;
 
+
+    MarshMallowPermission marshMallowPermission = new MarshMallowPermission(this);
 
     // Whether an asynchronous menu action is in progress.
 // If so, menu interaction should be disabled.
@@ -133,10 +138,10 @@ public class CameraActivity extends AppCompatActivity
                             try {
                                 akbarHunting = new ImageDetectionFilter(
                                         CameraActivity.this,
-                                        R.drawable.id_back);
+                                        R.drawable.id_back_transp);
                             } catch (IOException e) {
                                 Log.e(TAG, "Failed to load drawable: " +
-                                        "id_back");
+                                        "id_back_transp");
                                 e.printStackTrace();
                                 break;
                             }
@@ -145,7 +150,6 @@ public class CameraActivity extends AppCompatActivity
                                     starryNight,
                                     akbarHunting
                             };
-
                             mCurveFilters = new Filter[] {
                                     new NoneFilter(),
                                     new PortraCurveFilter(),
@@ -164,7 +168,6 @@ public class CameraActivity extends AppCompatActivity
                                     new StrokeEdgesFilter()
                             };
                             break;
-
                         default:
                             super.onManagerConnected(status);
                             break;
@@ -204,28 +207,60 @@ public class CameraActivity extends AppCompatActivity
             mConvolutionFilterIndex = 0;
             mImageDetectionFilterIndex = 0;
         }
-        final Camera camera;
+        Camera camera = null;
         if (Build.VERSION.SDK_INT >=
                 Build.VERSION_CODES.GINGERBREAD) {
             Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
             Camera.getCameraInfo(mCameraIndex, cameraInfo);
             mIsCameraFrontFacing = (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT);
             mNumCameras = Camera.getNumberOfCameras();
-            camera = Camera.open(mCameraIndex);
+
+            if (!marshMallowPermission.checkPermissionForCamera()) {
+                marshMallowPermission.requestPermissionForCamera();
+            }
+            else
+            {
+                if (!marshMallowPermission.checkPermissionForExternalStorage())
+                {
+                    marshMallowPermission.requestPermissionForExternalStorage();
+                }
+                else
+                {
+                    try {
+                        camera = Camera.open(mCameraIndex);
+                    }
+                    catch(Exception e)
+                    {
+                        e.printStackTrace();
+                    }
+                }
+            }
         } else { // pre-Gingerbread
 // Assume there is only 1 camera and it is rear-facing.
             mIsCameraFrontFacing = false;
             mNumCameras = 1;
             camera = Camera.open();
         }
+//        if (camera == null)
+//        {
+//            Toast.makeText(CameraActivity.this, "Error opening camera. Closing.",
+//                    Toast.LENGTH_SHORT).show();
+//            return;
+//        }
+
         final Parameters parameters = camera.getParameters();
         camera.release();
         mSupportedImageSizes =  parameters.getSupportedPreviewSizes();
         final Size size = mSupportedImageSizes.get(mImageSizeIndex);
-        mCameraView = new JavaCameraView(this, mCameraIndex);
+        //mCameraView = new JavaCameraView(this, mCameraIndex);
+        setContentView(R.layout.activity_camera);
+        mCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
+
+        mCameraView.setVisibility(SurfaceView.VISIBLE);
         mCameraView.setMaxFrameSize(size.width, size.height);
         mCameraView.setCvCameraViewListener(this);
-        setContentView(mCameraView);
+        mCameraView.disableFpsMeter();
+        //setContentView(mCameraView);
     }
 
     public void onSaveInstanceState(Bundle savedInstanceState) {
@@ -386,8 +421,7 @@ public class CameraActivity extends AppCompatActivity
         // Apply the active filters.
         mCurveFilters[mCurveFilterIndex].apply(rgba, rgba);
         mMixerFilters[mMixerFilterIndex].apply(rgba, rgba);
-        mConvolutionFilters[mConvolutionFilterIndex].apply(
-                rgba, rgba);
+        mConvolutionFilters[mConvolutionFilterIndex].apply(rgba, rgba);
 
         if (mIsPhotoPending) {
             mIsPhotoPending = false;
@@ -419,6 +453,11 @@ public class CameraActivity extends AppCompatActivity
                 appName;
         final String photoPath = albumPath + File.separator +
                 currentTimeMillis + LabActivity.PHOTO_FILE_EXTENSION;
+        final String photoPathID = albumPath + File.separator +
+                currentTimeMillis + "ID" + LabActivity.PHOTO_FILE_EXTENSION;
+        final String photoPathMRZ = albumPath + File.separator +
+                currentTimeMillis + "MRZ" + LabActivity.PHOTO_FILE_EXTENSION;
+
         final ContentValues values = new ContentValues();
         values.put(MediaStore.MediaColumns.DATA, photoPath);
         values.put(Images.Media.MIME_TYPE,
@@ -426,6 +465,29 @@ public class CameraActivity extends AppCompatActivity
         values.put(Images.Media.TITLE, appName);
         values.put(Images.Media.DESCRIPTION, appName);
         values.put(Images.Media.DATE_TAKEN, currentTimeMillis);
+
+        //START Detect MRZ
+        try {
+            DetectIDMRZ detectMRZ = new DetectIDMRZ(CameraActivity.this, R.drawable.id_back_transp);
+
+            mrz = detectMRZ.run(rgba);
+
+            final TextView mrzText = (TextView) findViewById(R.id.mrzCode);
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    // This code will always run on the UI thread, therefore is safe to modify UI elements.
+                    mrzText.setText(mrz);
+                }
+            });
+        }
+        catch (IOException e)
+        {
+            Log.e(TAG, e.getMessage());
+        }
+
+        //END Detect MRZ
 
         // Ensure that the album directory exists.
         File album = new File(albumPath);
@@ -444,7 +506,7 @@ public class CameraActivity extends AppCompatActivity
         }
         Log.d(TAG, "Photo saved successfully to " + photoPath);
 
-        // Try to insert the photo into the MediaStore.
+        // Try to insert the photo into the MediaStore. ;
         Uri uri;
         try {
             uri = getContentResolver().insert(
@@ -468,6 +530,8 @@ public class CameraActivity extends AppCompatActivity
         intent.putExtra(LabActivity.EXTRA_PHOTO_URI, uri);
         intent.putExtra(LabActivity.EXTRA_PHOTO_DATA_PATH,
                 photoPath);
+        intent.putExtra(LabActivity.EXTRA_MRZ_TEXT, mrz);
+
         runOnUiThread(new Runnable() {
             @Override
             public void run() {

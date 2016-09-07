@@ -1,0 +1,60 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion "23.0.2"
+
+    defaultConfig {
+        minSdkVersion 9
+        targetSdkVersion 9
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    sourceSets {
+        main {
+            jni.srcDirs = []
+            jniLibs.srcDirs = ['src/main/libs']
+        }
+    }
+
+    // Call external ndk-build(.cmd) script to build the native code
+    task ndkBuild(type: Exec) {
+        def ndkBuildExt = Os.isFamily(Os.FAMILY_WINDOWS) ? ".cmd" : ""
+        commandLine "ndk-build${ndkBuildExt}", '-C', file('src/main').absolutePath,
+                '-j', Runtime.runtime.availableProcessors()
+    }
+
+    tasks.withType(JavaCompile) {
+        compileTask -> compileTask.dependsOn ndkBuild
+    }
+
+    // Cleanup task to remove previously generated binaries
+    task ndkClean(type: Exec) {
+        def ndkBuildExt = Os.isFamily(Os.FAMILY_WINDOWS) ? ".cmd" : ""
+        commandLine "ndk-build${ndkBuildExt}", '-C', file('src/main').absolutePath, 'clean'
+    }
+
+    tasks.withType(Delete) {
+        cleanTask -> cleanTask.dependsOn ndkClean
+    } 
+
+    lintOptions {
+        abortOnError false
+    }
+
+}
+
+dependencies {
+    compile project(':tess-two');
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+}
