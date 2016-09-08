@@ -20,6 +20,6 @@
         android:id="@+id/mrzCode"
         android:layout_gravity="bottom"
         android:background="#64ffffff"
-        android:textColor="#ffe600" />
+        android:textColor="#0000ff" />
 
 </FrameLayout>

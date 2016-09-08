@@ -241,26 +241,42 @@ public class CameraActivity extends AppCompatActivity
             mNumCameras = 1;
             camera = Camera.open();
         }
+
+//        while (!marshMallowPermission.checkPermissionForCamera() || !marshMallowPermission.checkPermissionForExternalStorage())
+//        {
+//            SystemClock.sleep(1000);
+//        }
 //        if (camera == null)
 //        {
 //            Toast.makeText(CameraActivity.this, "Error opening camera. Closing.",
 //                    Toast.LENGTH_SHORT).show();
 //            return;
 //        }
+        if (marshMallowPermission.checkPermissionForCamera()) {
+            final Parameters parameters = camera.getParameters();
+            camera.release();
+            mSupportedImageSizes =  parameters.getSupportedPreviewSizes();
+            final Size size = mSupportedImageSizes.get(mImageSizeIndex);
+            //mCameraView = new JavaCameraView(this, mCameraIndex);
 
-        final Parameters parameters = camera.getParameters();
-        camera.release();
-        mSupportedImageSizes =  parameters.getSupportedPreviewSizes();
-        final Size size = mSupportedImageSizes.get(mImageSizeIndex);
-        //mCameraView = new JavaCameraView(this, mCameraIndex);
-        setContentView(R.layout.activity_camera);
-        mCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
-
-        mCameraView.setVisibility(SurfaceView.VISIBLE);
-        mCameraView.setMaxFrameSize(size.width, size.height);
-        mCameraView.setCvCameraViewListener(this);
-        mCameraView.disableFpsMeter();
-        //setContentView(mCameraView);
+            setContentView(R.layout.activity_camera);
+            mCameraView = (CameraBridgeViewBase) findViewById(R.id.HelloOpenCvView);
+            mCameraView.setVisibility(SurfaceView.VISIBLE);
+            mCameraView.setMaxFrameSize(size.width, size.height);
+            mCameraView.setCvCameraViewListener(this);
+            mCameraView.disableFpsMeter();
+            //setContentView(mCameraView);
+        }
+        else
+        {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(CameraActivity.this, "Please enable camera permissions",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
     }
 
     public void onSaveInstanceState(Bundle savedInstanceState) {
@@ -441,7 +457,7 @@ public class CameraActivity extends AppCompatActivity
         return rgba;
     }
 
-    private void takePhoto(final Mat rgba) {
+    private void takePhoto(Mat rgba) {
 
         // Determine the path and metadata for the photo.
         final long currentTimeMillis = System.currentTimeMillis();
@@ -468,7 +484,7 @@ public class CameraActivity extends AppCompatActivity
 
         //START Detect MRZ
         try {
-            DetectIDMRZ detectMRZ = new DetectIDMRZ(CameraActivity.this, R.drawable.id_back_transp);
+            DetectIDMRZ detectMRZ = new DetectIDMRZ(CameraActivity.this, this, R.drawable.id_back_transp);
 
             mrz = detectMRZ.run(rgba);
 

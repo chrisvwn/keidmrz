@@ -1,8 +1,10 @@
 package com.example.chris.secondsight.detectmrz;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
+import android.graphics.Camera;
 import android.os.Environment;
 import android.util.Log;
 import android.widget.TextView;
@@ -50,6 +52,8 @@ import com.googlecode.tesseract.android.*;
  */
 public class DetectIDMRZ {
     Context thisContext;
+
+    Activity thisActivity;
 
     // The reference image (this detector's target).
     private final Mat mReferenceImage;
@@ -191,10 +195,12 @@ public class DetectIDMRZ {
     }
 */
     public DetectIDMRZ(final Context context,
+                       final Activity activity,
                        final int referenceImageResourceID) throws IOException {
         //Constructor
 
         thisContext = context;
+        thisActivity = activity;
 
         // Load the reference image from the app's resources.
         // It is loaded in BGR (blue, green, red) format.
@@ -418,7 +424,7 @@ public class DetectIDMRZ {
     {
         //Mat img = Imgcodecs.imread(photoPath);
 
-        Mat roi = null;
+        Mat roi = new Mat();
 
         Mat rectKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(13,5));
 
@@ -632,7 +638,7 @@ public class DetectIDMRZ {
 
         // Detect edges
         Mat edges = new Mat();
-        int thresh = 130;
+        int thresh = 50;
         //Imgproc.Canny(filtered, edges, thresh, thresh*2);
         Imgproc.Canny(filtered, edges, thresh, 255);
         //displayImage(toBufferedImage(edges), "edges");
@@ -670,12 +676,17 @@ public class DetectIDMRZ {
             approx_array = approx.toArray();
             MatOfPoint approx_matofpoint = new MatOfPoint(approx_array);
 
+
+            Rect bRectContour = Imgproc.boundingRect(approx_matofpoint);
+
             //approx_matofpoint = approx_list.
             // Note: absolute value of an area is used because
             // area may be positive or negative - in accordance with the
             // contour orientation
-            if ((approx_array.length == 4 && Math.abs(Imgproc.contourArea(new MatOfPoint2f(approx))) > 1000 &&
-                    Imgproc.isContourConvex(approx_matofpoint)))
+            //ADDED: Check that the height and width of possible candidates
+            // are at least 1/2 of the image dimensions
+            if (approx_array.length == 4 && Math.abs(Imgproc.contourArea(new MatOfPoint2f(approx))) > 1000 &&
+                    Imgproc.isContourConvex(approx_matofpoint))
             {
                 double maxCosine = 0;
                 for (int j = 2; j < 5; j++)
@@ -738,32 +749,31 @@ public class DetectIDMRZ {
 
         findSquares(src, squares);
 
+        if (squares.size() == 0)
+            return src;
+
         // Draw all detected squares
         Mat src_squares = src.clone();
         for (int i = 0; i < squares.size(); i++)
         {
-//        	List<Point> square_list = new ArrayList<Point>();
-//        	square_list = squares.get(i).toList();
-//
-//            Point p = square_list.get(0);
             int n = squares.get(i).rows();
             Imgproc.polylines(src_squares,squares, true, new Scalar(0, 255, 0), 2, Core.LINE_AA, 0);
         }
 
         //displayImage(toBufferedImage(src_squares), "src squares");
 
-        //imwrite("out_squares.jpg", src_squares);
-        //cv::imshow("Squares", src_squares);
-
-        MatOfPoint largest_square = new MatOfPoint();
+        MatOfPoint largest_square = null;
         largest_square = findLargestSquare(squares);
+
+        if (largest_square == null)
+            return src;
 
         List<Point> largest_square_list = new ArrayList<Point>();
         largest_square_list = largest_square.toList();
 
         // Draw circles at the corners
         for (int i = 0; i < largest_square_list.size(); i++ )
-            Imgproc.circle(src, largest_square_list.get(i), 4, new Scalar(0, 127, 127), Core.FILLED);
+            Imgproc.circle(src, largest_square_list.get(i), 4, new Scalar(255, 255, 255), Core.FILLED);
 
         //displayImage(toBufferedImage(src), "corners");
 
@@ -780,26 +790,64 @@ public class DetectIDMRZ {
     public String run(Mat img) {
 
         //detectID(img);
+        thisActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(thisActivity, "Start search for ID",
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
 
-        img = findRoundedCornersID(img);
+        Mat detectedID = findRoundedCornersID(img);
 
-        Point topLeft = new Point(mSceneCorners.get(0, 0));
+        if (detectedID.size() != img.size()) {
+            thisActivity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(thisContext, "Found possible ID. Starting search for MRZ",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+        else
+        {
+            thisActivity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(thisContext, "ID not found. Exiting",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+            return "";
+        }
 
-        Point bottomRight = new Point(mSceneCorners.get(2, 0));
-
-        Point bottomLeft = new Point(mSceneCorners.get(1, 0));
-
-        Point topRight = new Point(mSceneCorners.get(3, 0));
 
         //Mat detectedID = new Mat(img, new Rect(topLeft, bottomRight));
 
-        Mat mrz = detectMRZ(img);
+
+        Mat mrz = detectMRZ(detectedID);
 
         //displayImage(toBufferedImage(mrz), "found MRZ?");
 
+        if (mrz.empty()) {
+            thisActivity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(thisContext, "MRZ Not found. Exiting",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
 
-        if (mrz == null)
             return "";
+        }
+
+        thisActivity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(thisContext, "Found MRZ. Running OCR",
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
 
         TessBaseAPI baseApi = new TessBaseAPI();
         baseApi.setDebug(true);
@@ -811,11 +859,31 @@ public class DetectIDMRZ {
         Utils.matToBitmap(result, bmp);
 
         baseApi.setImage(bmp);
-        String recognizedText = baseApi.getUTF8Text();
+        final String recognizedText = baseApi.getUTF8Text();
         baseApi.end();
 
         //Imgproc.putText(img, recognizedText, new Point(0, img.height()-20), 1, 1.0, new Scalar(0, 255, 0), 2);
 
+        if (recognizedText == "")
+        {
+            thisActivity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(thisContext, "No text recognized",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+        else
+        {
+            thisActivity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(thisContext, "OCR successful:\n"+ recognizedText,
+                            Toast.LENGTH_LONG).show();
+                }
+            });
+        }
         return recognizedText;
     }
 
