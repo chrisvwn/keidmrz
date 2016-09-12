@@ -426,9 +426,14 @@ public class DetectIDMRZ {
 
         Mat roi = new Mat();
 
+        int kernHt = img.height()/23;
+
+        if (kernHt%2 != 0)
+            kernHt++;
+
         Mat rectKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(13,5));
 
-        Mat sqKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(21,21));
+        Mat sqKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(21,kernHt));
 
         if (img.width() > 800)
             // load the image, resize it, and convert it to grayscale
@@ -571,7 +576,8 @@ public class DetectIDMRZ {
             src.copyTo(dst);
         }
 
-        if (mSceneCorners.height() < 4) {
+        if (mSceneCorners.height() < 4)
+        {
             // The target has not been found.
 
             // Draw a thumbnail of the target in the upper-left
@@ -675,9 +681,11 @@ public class DetectIDMRZ {
 
             approx_array = approx.toArray();
             MatOfPoint approx_matofpoint = new MatOfPoint(approx_array);
+            MatOfPoint2f approx_matofpoint2f = new MatOfPoint2f(approx_array);
 
 
             Rect bRectContour = Imgproc.boundingRect(approx_matofpoint);
+
 
             //approx_matofpoint = approx_list.
             // Note: absolute value of an area is used because
@@ -800,7 +808,7 @@ public class DetectIDMRZ {
 
         Mat detectedID = findRoundedCornersID(img);
 
-        if (detectedID.size() != img.size()) {
+        if (detectedID.height() != img.height() && detectedID.width() != img.width()) {
             thisActivity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
@@ -814,11 +822,11 @@ public class DetectIDMRZ {
             thisActivity.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    Toast.makeText(thisContext, "ID not found. Exiting",
+                    Toast.makeText(thisContext, "ID not found. Trying MRZ in case zoomed in",
                             Toast.LENGTH_SHORT).show();
                 }
             });
-            return "";
+            //return "";
         }
 
 
@@ -855,6 +863,13 @@ public class DetectIDMRZ {
 
         Mat result = new Mat();
         Imgproc.cvtColor(mrz, result, Imgproc.COLOR_RGB2BGRA);
+
+        //Imgproc.cvtColor(result, result, Imgproc.COLOR_BGRA2GRAY);
+
+        //Imgproc.GaussianBlur(result, result, new Size(3, 3), 0);
+
+        //Imgproc.threshold(result, result, 0, 255, Imgproc.THRESH_OTSU);
+
         Bitmap bmp = Bitmap.createBitmap(result.cols(), result.rows(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(result, bmp);
 
