@@ -20,6 +20,7 @@ import org.opencv.features2d.FeatureDetector;
 import org.opencv.features2d.Features2d;
 import org.opencv.imgcodecs.*;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.utils.Converters;
 
 //import java.awt.FlowLayout;
 //import java.awt.Image;
@@ -546,7 +547,7 @@ public class DetectIDMRZ {
             if (ar > 4 && crWidth > 0.75){
                 // pad the bounding box since we applied erosions and now need
                 // to re-grow it
-                int pX = (int)((x + w) * 0.03);
+                int pX = (int)((x + w) * 0.03); //previously 0.03 expanded to allow for warp
                 int pY = (int)((y + h) * 0.03);
                 x = x - pX;
                 y = y - pY;
@@ -555,11 +556,9 @@ public class DetectIDMRZ {
 
                 // extract the ROI from the image and draw a bounding box
                 // surrounding the MRZ
-
-                roi = new Mat(img, new Rect(x, y, w, h));
+                roi = new Mat(img, bRect);
 
                 Imgproc.rectangle(img, new Point(x, y), new Point(x + w, y + h), new Scalar(0, 255, 0), 2);
-
 
                 //displayImage(toBufferedImage(img), "found mrz?");
 
@@ -681,18 +680,11 @@ public class DetectIDMRZ {
 
             approx_array = approx.toArray();
             MatOfPoint approx_matofpoint = new MatOfPoint(approx_array);
-            MatOfPoint2f approx_matofpoint2f = new MatOfPoint2f(approx_array);
 
-
-            Rect bRectContour = Imgproc.boundingRect(approx_matofpoint);
-
-
-            //approx_matofpoint = approx_list.
             // Note: absolute value of an area is used because
             // area may be positive or negative - in accordance with the
             // contour orientation
-            //ADDED: Check that the height and width of possible candidates
-            // are at least 1/2 of the image dimensions
+
             if (approx_array.length == 4 && Math.abs(Imgproc.contourArea(new MatOfPoint2f(approx))) > 1000 &&
                     Imgproc.isContourConvex(approx_matofpoint))
             {
@@ -703,8 +695,45 @@ public class DetectIDMRZ {
                     maxCosine = Math.max(maxCosine, cosine);
                 }
 
-                if (maxCosine < 0.3)
+                if (maxCosine < 0.3) {
+/*
+                 //first sort the points into tl, tr, br, bl
+                    int smallest = 0;
+                    Point temp;
+
+                    //bubble sort based on x
+                    for (int idxPos = 0; idxPos < approx_array.length; idxPos++)
+                        for (int idx = idxPos; idx < approx_array.length; idx++)
+                        {
+                            if (approx_array[idx].x < approx_array[idxPos].x)
+                            {
+                                temp = approx_array[idxPos];
+                                approx_array[idxPos] = approx_array[idx];
+                                approx_array[idx] = temp;
+                            }
+                        }
+
+                    if (approx_array[1].y < approx_array[0].y)
+                    {
+                        temp = approx_array[0];
+                        approx_array[0] = approx_array[1];
+                        approx_array[1] = temp;
+                    }
+
+                    if (approx_array[3].y < approx_array[2].y)
+                    {
+                        temp = approx_array[2];
+                        approx_array[2] = approx_array[3];
+                        approx_array[3] = temp;
+                    }
+
+                    //order points clockwise from tl
+                    MatOfPoint final_array = new MatOfPoint(approx_array[0], approx_array[2], approx_array[3], approx_array[1]);
+*/
+
+
                     squares.add(new MatOfPoint(approx_array));
+                }
             }
         }
     }
@@ -779,15 +808,75 @@ public class DetectIDMRZ {
         List<Point> largest_square_list = new ArrayList<Point>();
         largest_square_list = largest_square.toList();
 
-        // Draw circles at the corners
-        for (int i = 0; i < largest_square_list.size(); i++ )
-            Imgproc.circle(src, largest_square_list.get(i), 4, new Scalar(255, 255, 255), Core.FILLED);
 
-        //displayImage(toBufferedImage(src), "corners");
+/*
+        Point [] sqPts = largest_square.toArray();
+
+        double wSq1 = sqPts[1].x - sqPts[0].x;
+        double wSq2 = sqPts[2].x - sqPts[3].x;
+
+        double hSq1 = sqPts[3].y - sqPts[0].y;
+        double hSq2 = sqPts[2].y - sqPts[1].y;
+
+        double sqRatio = 0.03;
+
+        Point sqPt0 = new Point(sqPts[0].x - wSq1*sqRatio, sqPts[0].y - hSq1*sqRatio);
+        Point sqPt1 = new Point(sqPts[1].x + wSq1*sqRatio, sqPts[1].y - hSq2*sqRatio);
+        Point sqPt2 = new Point(sqPts[2].x + wSq2*sqRatio, sqPts[2].y + hSq2*sqRatio);
+        Point sqPt3 = new Point(sqPts[3].x - wSq2*sqRatio, sqPts[3].y + hSq1*sqRatio);
+
+        //MatOfPoint2f inputQuad = new MatOfPoint2f(sqPt0,sqPt1,sqPt2,sqPt3);
+
+        MatOfPoint2f inputQuad = new MatOfPoint2f(
+                new Point( sqPts[0].x, sqPts[0].y ),
+                new Point( sqPts[1].x, sqPts[1].y ),
+                new Point( sqPts[2].x, sqPts[2].y ),
+                new Point( sqPts[3].x, sqPts[3].y ));
+
+
+        MatOfPoint inputQuadPt = new MatOfPoint(
+                new Point( sqPts[0].x, sqPts[0].y ),
+                new Point( sqPts[1].x, sqPts[1].y ),
+                new Point( sqPts[2].x, sqPts[2].y ),
+                new Point( sqPts[3].x, sqPts[3].y ));*/
 
         Rect bRect = Imgproc.boundingRect(largest_square);
 
+        int x=bRect.x;
+        int y=bRect.y;
+        int w=bRect.width;
+        int h=bRect.height;
+
+        //okay. found largest square. let's warp it to a real rectangle
+/*        MatOfPoint2f outputQuad = new MatOfPoint2f(
+                new Point( x, y ),
+                new Point( x+w, y),
+                new Point( x+w, y+h),
+                new Point( x, y+h));
+
+        inputQuad.convertTo(inputQuad, CvType.CV_32F);
+        outputQuad.convertTo(outputQuad, CvType.CV_32F);
+        Mat lambda = Imgproc.getPerspectiveTransform( inputQuad, outputQuad );
+
+        Mat warpSrc = new Mat(src,bRect);
+
+        // Apply the Perspective Transform just found to the src image
+        Imgproc.warpPerspective(src.submat(bRect), warpSrc, lambda, bRect.size());*/
+
+        // Draw circles at the corners
+        for (int i = 0; i < largest_square_list.size(); i++ )
+            Imgproc.circle(src, largest_square_list.get(i), 4, new Scalar(255, 255, 224), Core.FILLED);
+
+/*
+        for (int i = 0; i < outputQuad.toArray().length; i++ )
+            Imgproc.circle(src, outputQuad.toArray()[i], 4, new Scalar(255, 255, 224), Core.FILLED);
+*/
+
+
+        //displayImage(toBufferedImage(src), "corners");
+
         src = new Mat(src, bRect);
+//        src = warpSrc;
 
         //displayImage(toBufferedImage(idInSrc), "cropped to id only");
 

@@ -138,10 +138,10 @@ public class CameraActivity extends AppCompatActivity
                             try {
                                 akbarHunting = new ImageDetectionFilter(
                                         CameraActivity.this,
-                                        R.drawable.id_back_transp);
+                                        R.drawable.id_back_section1);
                             } catch (IOException e) {
                                 Log.e(TAG, "Failed to load drawable: " +
-                                        "id_back_transp");
+                                        "id_back_section1");
                                 e.printStackTrace();
                                 break;
                             }
@@ -256,6 +256,20 @@ public class CameraActivity extends AppCompatActivity
             final Parameters parameters = camera.getParameters();
             camera.release();
             mSupportedImageSizes =  parameters.getSupportedPreviewSizes();
+
+            //fix only 1 camera size
+            int idx = 0;
+
+            while (mSupportedImageSizes.size() > 1)
+            {
+                final Size size = mSupportedImageSizes.get(idx);
+
+                if (size.width == 800 && size.height == 480)
+                    idx++;
+                else
+                    mSupportedImageSizes.remove(idx);
+            }
+
             final Size size = mSupportedImageSizes.get(mImageSizeIndex);
             //mCameraView = new JavaCameraView(this, mCameraIndex);
 
@@ -346,7 +360,9 @@ public class CameraActivity extends AppCompatActivity
             // only 1.
             menu.removeItem(R.id.menu_next_camera);
         }
+
         int numSupportedImageSizes = mSupportedImageSizes.size();
+
         if (numSupportedImageSizes > 1) {
             final SubMenu sizeSubMenu = menu.addSubMenu(
                     R.string.menu_image_size);
@@ -484,7 +500,7 @@ public class CameraActivity extends AppCompatActivity
 
         //START Detect MRZ
         try {
-            DetectIDMRZ detectMRZ = new DetectIDMRZ(CameraActivity.this, this, R.drawable.id_back_transp);
+            DetectIDMRZ detectMRZ = new DetectIDMRZ(CameraActivity.this, this, R.drawable.id_back_section1);
 
             mrz = detectMRZ.run(rgba);
 
