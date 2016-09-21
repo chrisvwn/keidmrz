@@ -556,7 +556,8 @@ public class DetectIDMRZ {
 
                 // extract the ROI from the image and draw a bounding box
                 // surrounding the MRZ
-                roi = new Mat(img, bRect);
+                //roi = new Mat(img, bRect);
+                roi = new Mat(img, new Rect(x, y, w, h));
 
                 Imgproc.rectangle(img, new Point(x, y), new Point(x + w, y + h), new Scalar(0, 255, 0), 2);
 
@@ -696,7 +697,7 @@ public class DetectIDMRZ {
                 }
 
                 if (maxCosine < 0.3) {
-/*
+
                  //first sort the points into tl, tr, br, bl
                     int smallest = 0;
                     Point temp;
@@ -729,10 +730,8 @@ public class DetectIDMRZ {
 
                     //order points clockwise from tl
                     MatOfPoint final_array = new MatOfPoint(approx_array[0], approx_array[2], approx_array[3], approx_array[1]);
-*/
 
-
-                    squares.add(new MatOfPoint(approx_array));
+                    squares.add(new MatOfPoint(final_array));
                 }
             }
         }
@@ -809,7 +808,7 @@ public class DetectIDMRZ {
         largest_square_list = largest_square.toList();
 
 
-/*
+
         Point [] sqPts = largest_square.toArray();
 
         double wSq1 = sqPts[1].x - sqPts[0].x;
@@ -837,8 +836,8 @@ public class DetectIDMRZ {
         MatOfPoint inputQuadPt = new MatOfPoint(
                 new Point( sqPts[0].x, sqPts[0].y ),
                 new Point( sqPts[1].x, sqPts[1].y ),
-                new Point( sqPts[2].x, sqPts[2].y ),
-                new Point( sqPts[3].x, sqPts[3].y ));*/
+                 new Point( sqPts[2].x, sqPts[2].y ),
+                new Point( sqPts[3].x, sqPts[3].y ));
 
         Rect bRect = Imgproc.boundingRect(largest_square);
 
@@ -848,7 +847,7 @@ public class DetectIDMRZ {
         int h=bRect.height;
 
         //okay. found largest square. let's warp it to a real rectangle
-/*        MatOfPoint2f outputQuad = new MatOfPoint2f(
+        MatOfPoint2f outputQuad = new MatOfPoint2f(
                 new Point( x, y ),
                 new Point( x+w, y),
                 new Point( x+w, y+h),
@@ -858,14 +857,34 @@ public class DetectIDMRZ {
         outputQuad.convertTo(outputQuad, CvType.CV_32F);
         Mat lambda = Imgproc.getPerspectiveTransform( inputQuad, outputQuad );
 
-        Mat warpSrc = new Mat(src,bRect);
+        //Mat warpSrc = new Mat(src,bRect);
 
         // Apply the Perspective Transform just found to the src image
-        Imgproc.warpPerspective(src.submat(bRect), warpSrc, lambda, bRect.size());*/
+        //Imgproc.warpAffine(src.submat(bRect), warpSrc, lambda, bRect.size(), Imgproc.INTER_CUBIC);
+
+        Imgproc.warpPerspective(src, src, lambda, src.size(), Imgproc.INTER_CUBIC);
+
+        //now that we have corrected the image find the squares again
+
+        findSquares(src, squares);
+
+        if (squares.size() == 0)
+            return src;
+
+        largest_square = findLargestSquare(squares);
+
+        if (largest_square == null)
+            return src;
+
+        largest_square_list = largest_square.toList();
 
         // Draw circles at the corners
-        for (int i = 0; i < largest_square_list.size(); i++ )
+        for (int i = 0; i < largest_square_list.size(); i++)
             Imgproc.circle(src, largest_square_list.get(i), 4, new Scalar(255, 255, 224), Core.FILLED);
+
+        bRect = Imgproc.boundingRect(largest_square);
+
+        Mat warpSrc = new Mat(src,bRect);
 
 /*
         for (int i = 0; i < outputQuad.toArray().length; i++ )
@@ -875,8 +894,8 @@ public class DetectIDMRZ {
 
         //displayImage(toBufferedImage(src), "corners");
 
-        src = new Mat(src, bRect);
-//        src = warpSrc;
+//        src = new Mat(src, bRect);
+        src = warpSrc;
 
         //displayImage(toBufferedImage(idInSrc), "cropped to id only");
 
@@ -919,7 +938,9 @@ public class DetectIDMRZ {
         }
 
 
-        //Mat detectedID = new Mat(img, new Rect(topLeft, bottomRight));
+        //write detectedID image to storage
+        Imgcodecs.imwrite(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES).toString()+"/SecondSight/detectedID.png", detectedID);
 
 
         Mat mrz = detectMRZ(detectedID);
@@ -945,6 +966,10 @@ public class DetectIDMRZ {
                         Toast.LENGTH_SHORT).show();
             }
         });
+
+        //write mrz image to storage
+        Imgcodecs.imwrite(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES).toString()+"/SecondSight/mrz.png", mrz);
 
         TessBaseAPI baseApi = new TessBaseAPI();
         baseApi.setDebug(true);
