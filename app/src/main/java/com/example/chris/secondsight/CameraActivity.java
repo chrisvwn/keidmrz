@@ -65,6 +65,16 @@ public class CameraActivity extends AppCompatActivity
     private static final String STATE_IMAGE_SIZE_INDEX = "imageSizeIndex";
     // An ID for items in the image size submenu.
     private static final int MENU_GROUP_ID_SIZE = 2;
+    // Keys for storing the indices of the active filters.
+    private static final String STATE_CURVE_FILTER_INDEX =
+            "curveFilterIndex";
+    private static final String STATE_MIXER_FILTER_INDEX =
+            "mixerFilterIndex";
+    private static final String STATE_CONVOLUTION_FILTER_INDEX =
+            "convolutionFilterIndex";
+    private static final String STATE_IMAGE_DETECTION_FILTER_INDEX =
+            "imageDetectionFilterIndex";
+    MarshMallowPermission marshMallowPermission = new MarshMallowPermission(this);
     // The index of the active camera.
     private int mCameraIndex;
     // The index of the active image size.
@@ -82,33 +92,17 @@ public class CameraActivity extends AppCompatActivity
     private boolean mIsPhotoPending;
     // A matrix that is used when saving photos.
     private Mat mBgr;
-
-    // Keys for storing the indices of the active filters.
-    private static final String STATE_CURVE_FILTER_INDEX =
-            "curveFilterIndex";
-    private static final String STATE_MIXER_FILTER_INDEX =
-            "mixerFilterIndex";
-    private static final String STATE_CONVOLUTION_FILTER_INDEX =
-            "convolutionFilterIndex";
-    private static final String STATE_IMAGE_DETECTION_FILTER_INDEX =
-            "imageDetectionFilterIndex";
     private String mrz = "";
-
     // The filters.
     private Filter[] mCurveFilters;
     private Filter[] mMixerFilters;
     private Filter[] mConvolutionFilters;
     private Filter[] mImageDetectionFilters;
-
     // The indices of the active filters.
     private int mCurveFilterIndex;
     private int mMixerFilterIndex;
     private int mConvolutionFilterIndex;
     private int mImageDetectionFilterIndex;
-
-
-    MarshMallowPermission marshMallowPermission = new MarshMallowPermission(this);
-
     // Whether an asynchronous menu action is in progress.
 // If so, menu interaction should be disabled.
     private boolean mIsMenuLocked;
@@ -129,8 +123,7 @@ public class CameraActivity extends AppCompatActivity
                                         CameraActivity.this,
                                         R.drawable.id_front);
                             } catch (IOException e) {
-                                Log.e(TAG, "Failed to load drawable: " +
-                                        "id_front");
+                                Log.e(TAG, "Failed to load drawable: " + "id_front");
                                 e.printStackTrace();
                                 break;
                             }
@@ -140,8 +133,7 @@ public class CameraActivity extends AppCompatActivity
                                         CameraActivity.this,
                                         R.drawable.id_back_section1);
                             } catch (IOException e) {
-                                Log.e(TAG, "Failed to load drawable: " +
-                                        "id_back_section1");
+                                Log.e(TAG, "Failed to load drawable: " + "id_back_section1");
                                 e.printStackTrace();
                                 break;
                             }
@@ -186,19 +178,13 @@ public class CameraActivity extends AppCompatActivity
         window.addFlags(
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (savedInstanceState != null) {
-            mCameraIndex = savedInstanceState.getInt(
-                    STATE_CAMERA_INDEX, 0);
-            mImageSizeIndex = savedInstanceState.getInt(
-                    STATE_IMAGE_SIZE_INDEX, 0);
-            mCurveFilterIndex = savedInstanceState.getInt(
-                    STATE_CURVE_FILTER_INDEX, 0);
-            mMixerFilterIndex = savedInstanceState.getInt(
-                    STATE_MIXER_FILTER_INDEX, 0);
-            mConvolutionFilterIndex = savedInstanceState.getInt(
-                    STATE_CONVOLUTION_FILTER_INDEX, 0);
+            mCameraIndex = savedInstanceState.getInt(STATE_CAMERA_INDEX, 0);
+            mImageSizeIndex = savedInstanceState.getInt(STATE_IMAGE_SIZE_INDEX, 0);
+            mCurveFilterIndex = savedInstanceState.getInt(STATE_CURVE_FILTER_INDEX, 0);
+            mMixerFilterIndex = savedInstanceState.getInt(STATE_MIXER_FILTER_INDEX, 0);
+            mConvolutionFilterIndex = savedInstanceState.getInt(STATE_CONVOLUTION_FILTER_INDEX, 0);
             mImageDetectionFilterIndex =
-                    savedInstanceState.getInt(
-                            STATE_IMAGE_DETECTION_FILTER_INDEX, 0);
+                    savedInstanceState.getInt(STATE_IMAGE_DETECTION_FILTER_INDEX, 0);
         } else {
             mCameraIndex = 0;
             mImageSizeIndex = 0;
@@ -208,8 +194,7 @@ public class CameraActivity extends AppCompatActivity
             mImageDetectionFilterIndex = 0;
         }
         Camera camera = null;
-        if (Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.GINGERBREAD) {
+        if (Build.VERSION.SDK_INT >=Build.VERSION_CODES.GINGERBREAD) {
             Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
             Camera.getCameraInfo(mCameraIndex, cameraInfo);
             mIsCameraFrontFacing = (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT);

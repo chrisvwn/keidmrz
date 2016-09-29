@@ -2,5 +2,9 @@
     {
         "outputFile": "/home/chris/AndroidStudioProjects/SecondSight/openCVLibrary310/build/intermediates/res/merged/androidTest/debug/values/values.xml",
         "map": []
+    },
+    {
+        "outputFile": "/btrfs/AndroidStudioProjects/SecondSight/openCVLibrary310/build/intermediates/res/merged/androidTest/debug/values/values.xml",
+        "map": []
     }
 ]

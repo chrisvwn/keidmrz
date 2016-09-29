@@ -46,6 +46,8 @@ import java.util.List;
 
 import com.example.chris.secondsight.CameraActivity;
 import com.example.chris.secondsight.R;
+import com.googlecode.leptonica.android.Pix;
+import com.googlecode.leptonica.android.WriteFile;
 import com.googlecode.tesseract.android.*;
 
 /**
@@ -807,8 +809,6 @@ public class DetectIDMRZ {
         List<Point> largest_square_list = new ArrayList<Point>();
         largest_square_list = largest_square.toList();
 
-
-
         Point [] sqPts = largest_square.toArray();
 
         double wSq1 = sqPts[1].x - sqPts[0].x;
@@ -839,14 +839,19 @@ public class DetectIDMRZ {
                  new Point( sqPts[2].x, sqPts[2].y ),
                 new Point( sqPts[3].x, sqPts[3].y ));
 
+        //okay. found largest square. let's warp it to a real rectangle
+
+        //get the bounding rectangle of the largest square
         Rect bRect = Imgproc.boundingRect(largest_square);
 
+        //get top left and width and height in preparation to calculate 4 corner points of the bounding rect
         int x=bRect.x;
         int y=bRect.y;
         int w=bRect.width;
         int h=bRect.height;
 
-        //okay. found largest square. let's warp it to a real rectangle
+
+        //we need it in MatofPoint2f format for getPerspectiveTransform
         MatOfPoint2f outputQuad = new MatOfPoint2f(
                 new Point( x, y ),
                 new Point( x+w, y),
@@ -862,7 +867,15 @@ public class DetectIDMRZ {
         // Apply the Perspective Transform just found to the src image
         //Imgproc.warpAffine(src.submat(bRect), warpSrc, lambda, bRect.size(), Imgproc.INTER_CUBIC);
 
+        //display orig and warped largest square
         Imgproc.warpPerspective(src, src, lambda, src.size(), Imgproc.INTER_CUBIC);
+
+        Imgproc.line(src,sqPts[0],sqPts[1], new Scalar(0,0,255),1,Imgproc.LINE_AA,0);
+        Imgproc.line(src,sqPts[1],sqPts[2], new Scalar(0,0,255),1,Imgproc.LINE_AA,0);
+        Imgproc.line(src,sqPts[2],sqPts[3], new Scalar(0,0,255),1,Imgproc.LINE_AA,0);
+        Imgproc.line(src,sqPts[3],sqPts[0], new Scalar(0,0,255),1,Imgproc.LINE_AA,0);
+
+        Imgproc.rectangle(src,bRect.tl(),bRect.br(), new Scalar(0,255,0),1);
 
         //now that we have corrected the image find the squares again
 
@@ -886,10 +899,10 @@ public class DetectIDMRZ {
 
         Mat warpSrc = new Mat(src,bRect);
 
-/*
+
         for (int i = 0; i < outputQuad.toArray().length; i++ )
             Imgproc.circle(src, outputQuad.toArray()[i], 4, new Scalar(255, 255, 224), Core.FILLED);
-*/
+
 
 
         //displayImage(toBufferedImage(src), "corners");
@@ -969,9 +982,10 @@ public class DetectIDMRZ {
 
         //write mrz image to storage
         Imgcodecs.imwrite(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_PICTURES).toString()+"/SecondSight/mrz.png", mrz);
+                Environment.DIRECTORY_PICTURES).toString()+"/SecondSight/mrz_"+ System.currentTimeMillis()+".png", mrz);
 
         TessBaseAPI baseApi = new TessBaseAPI();
+        baseApi.setVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890<");
         baseApi.setDebug(true);
         baseApi.init(DATA_PATH, "eng");
 
@@ -989,11 +1003,20 @@ public class DetectIDMRZ {
 
         baseApi.setImage(bmp);
         final String recognizedText = baseApi.getUTF8Text();
+        //recognizedText.toUpperCase();
+        recognizedText.replaceAll(" ", "");
+        Pix tess_thresh_img = baseApi.getThresholdedImage();
         baseApi.end();
+
+        File pixFile = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES).toString()+"/SecondSight/tess_img_"+
+                System.currentTimeMillis()+".jpg");
+
+        WriteFile.writeImpliedFormat(tess_thresh_img,pixFile);
 
         //Imgproc.putText(img, recognizedText, new Point(0, img.height()-20), 1, 1.0, new Scalar(0, 255, 0), 2);
 
-        if (recognizedText == "")
+        if (recognizedText.equals(""))
         {
             thisActivity.runOnUiThread(new Runnable() {
                 @Override
